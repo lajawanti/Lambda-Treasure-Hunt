@@ -1,167 +1,234 @@
-import React, { Component } from 'react';
-import './App.css';
+import React, { Component } from "react";
 import axios from "axios";
+import Map from './Components/Map.js'
 
-const url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/'
-const config = {
-    headers: { Authorization : 'Token 64b42cfd1349e648f63518e2d079c990183f8094'}//`${process.env.REACT_APP_API_KEY}` }
+import './App.css'
+
+let config = {
+               headers : { Authorization : 'token 64b42cfd1349e648f63518e2d079c990183f8094'}//`${process.env.REACT_APP_API_KEY}` }
 };
 
 class App extends Component {
-  constructor(props) {
-      super(props);
-      this.state = {
-            roomId : 0,
-            currentRoom : '',
-            roomDescription : '',
-            coOrdinates : (0,0),
-            exists : [],
-            coolDown : 0,
-            items : '',
-            inputDirection : ''
-      };
-      this.graph = { 
-                    0 : { n: "?", s: "?", e: "?", w: "?" } 
-      };
-  }
+    constructor(props) {
+        super(props);
+        this.state = {
+              roomId : 0,
+              currentRoom : '',
+              roomDescription : '',
+              coOrdinates : {x : 0, y : 0},
+              exists : [],
+              coolDown : 0,
+              inputDirection : '',
+              items : [],
+              goBackDirection : {n : "s", s : "n", e : "w", w : "e"},
+              graph : {},
+              path : [],
+              visited : new Set() // to block repeated entry of visited rooms
+        };
+    }
 
-  componentDidMount() {
-      //console.log("$$", process.env.REACT_APP_API_KEY)
-        if(localStorage.getItem('graph')) {
-            const roomInfo = JSON.parse(localStorage.getItem('graph'))
-            this.setState({ graph : roomInfo })
-        } else {
-            this.getCurrentRoom();
+    componentDidMount() {
+        if (localStorage.hasOwnProperty("graph")) {
+            let value = JSON.parse(localStorage.getItem("graph"));
+            this.setState({ graph : value });
         }
-  }
-
-  getCurrentRoom = () => {
-        axios.get('https://lambda-treasure-hunt.herokuapp.com/api/adv/init/' , config)
-             .then(response => {
-                      console.log(response)
-                      this.setState({
-                          roomId : response.data.room_id,
-                          currentRoom : response.data.title,
-                          roomDescription : response.data.description,
-                          coOrdinates : response.data.coordinates,
-                          exists : response.data.exits,
-                          coolDown : response.data.cooldown,
-                          items : response.data.items
-                      })
-              })
-             .catch(error => console.log(error))
-  } //getCurrentRoom  end.................................
-
-
-  handleInputChange = (event) => {
-        this.setState({
-            inputDirection : event.target.value
-        })
-  }
-
-  /*handleSubmit = (event) => {
-        event.preventDefault();
-        const data = {direction : this.state.inputDirection}
-        console.log(data);
-        axios.post('https://lambda-treasure-hunt.herokuapp.com/api/adv/move/', data, config)
-             .then(response => {
-                                console.log(response)
-                                this.setState({
-                                    roomId : response.data.room_id,
-                                    currentRoom : response.data.title,
-                                    roomDescription : response.data.description,
-                                    coOrdinates : response.data.coordinates,
-                                    exists : response.data.exits,
-                                    coolDown : response.data.cooldown
-                                })
-              })
-             .catch(err => {
-                    console.log('ERROR with MOVE URL', err)
-              }); 
-  } //handleSubmit end....*/
-
-  goBack = (direction) => {
-        if(direction === 'e') return 'w';
-        else if(direction === 'w') return 'e';
-        else if(direction === 'n') return 's';
-        else if(direction === 's') return 'n';
-  }
-
-
-  /********************************************************** */
-  generateMap = (event) => {
-        event.preventDefault();
-        const data = {direction : this.state.inputDirection}
-        console.log(data);
     
-        let currentRoomExits = this.graph[this.state.roomId];
-        const unexploredExits = [];
+        this.getLocation();
+    }
 
-        for (let exit in currentRoomExits) {
-            if (currentRoomExits[exit] === "?") {
-                unexploredExits.push(exit);
+    getLocation = () => {
+        axios.get('https://lambda-treasure-hunt.herokuapp.com/api/adv/init/',config)
+           .then(response => {
+                               console.log(response)
+                               
+                               let graph = this.updateGraph(response.data.room_id, 
+                                                            this.parseCoOrdinates(response.data.coordinates), 
+                                                            response.data.exits);
+                               this.setState({
+                                   roomId        : response.data.room_id,
+                                   currentRoom   : response.data.title,
+                                   roomDescription : response.data.description,
+                                   coOrdinates   : response.data.coordinates,
+                                   exists        : response.data.exits,
+                                   coolDown      : response.data.cooldown,
+                                   items         : response.data.items
+                               });
+                               this.updateVisited();
+            })
+           .catch(error => console.log(error));
+    };
+
+    updateVisited = () => {
+        let visited = new Set(this.state.set);
+        for (let key in this.state.graph) {
+            if (!visited.has(key)) {
+                let notVisitedDirections = [];
+                for (let direction in key) {
+                    if (key[direction] === "?") {
+                        notVisitedDirections.push(direction);
+                    }
+                }
+                if (!notVisitedDirections.length) {
+                    visited.add(key);
+                }
             }
-            console.log("EXIT", exit);
+        }
+    }
+  
+    traverseMap = () => {
+        let notExploreddirections = this.getUnExploredDirections();
+        if (notExploreddirections.length) {
+            let move = notExploreddirections[0];
+            this.moveRooms(move); //axios.. call /move
+        } else {
+            clearInterval(this.interval);    //////////////////////////////////////////////////////////////////////////////////
+            let path = this.findPath();
+            let count = 1;
+            for (let direction of path) {
+                for (let d in direction) {
+                    setTimeout(() => {this.moveRooms(d);}, this.state.cooldown * 1000 * count);
+                    count++;
+                }
+            }
+            this.interval = setInterval(this.traverseMap, this.state.coolDown * 1000 * count);
+            count = 1;
+        }
+        this.updateVisited()
+    };
+
+    getUnExploredDirections = () => {
+        let notExploreddirections = [];
+        let directions = this.state.graph[this.state.roomId][1]; 
+        
+        for (let direction in directions) {
+            if (directions[direction] === "?") {
+                notExploreddirections.push(direction);
+            }
+        }
+        return notExploreddirections;
+    };
+
+    findPath = (start = this.state.roomId, end = "?") => { 
+        let queue = [];
+        let visited = new Set();
+        for (let room in this.state.graph[start][1]) {
+            queue = [...queue, [{ [room] : this.state.graph[start][1][room] }]];
         }
 
-        let exit = this.state.inputDirection;
-        if(unexploredExits) {
-            let prevRoomId = this.state.roomId;
-            if (["n", "s", "e", "w"].includes(exit)) {
-                this.state.traversalPath.push(exit);
-                axios.post('https://lambda-treasure-hunt.herokuapp.com/api/adv/move/', data, config)
-                     .then(response => {
-                                            this.setState({
-                                                roomId : response.data.room_id,
-                                                coOrdinates : response.data.coordinates,
-                                                exits : response.data.exits,
-                                                coolDown : response.data.cooldown,
-                                                inputDirection : ""
-                                       })
-                                       const moves = {};
-                                        response.data.exits.forEach(exit => {
-                                                    moves[exit] = "?";
-                                        });
-            
-                                        this.graph[prevRoomId][exit] = response.data.room_id;
-                                        this.graph[response.dataRoomId] = moves;
-                                        this.graph[response.data.roomId][this.oppositeDir(exit)] = prevRoomId;
-                                        localStorage.setItem("graph", JSON.stringify(this.graph));
-                      })
-                     .catch(error => console.log(error));
+        while (queue.length) {
+            let dequeuedItem = queue.shift();
+            let lastRoom = dequeuedItem[dequeuedItem.length - 1];
+            for (let exit in lastRoom) {
+                if (lastRoom[exit] === end) {
+                    dequeuedItem.pop();
+                    return dequeuedItem;
+                }else {
+                    visited.add(lastRoom[exit]);
+                    for (let path in this.state.graph[lastRoom[exit]][1]) {
+                        if (visited.has(this.state.graph[lastRoom[exit]][1][path]) === false) {
+                            let pathTravel = Array.from(dequeuedItem);
+                            pathTravel.push({ [path]: this.state.graph[lastRoom[exit]][1][path] });
+                            queue.push(pathTravel);
+                        }
+                    }
+                }
             }
-            console.log("GRAPH", this.state.graph);
         }
-  }
-  /******************************************************* */
-  
+    }
 
-  
-  render() {
-    console.log(this.state)
-    return (
-      <div className="App">
-          
-              <h1>Treasure   Hunting....</h1>
-              <div className = "display">
-                    <h3>Currently at ROOM  : {this.state.roomId}..<br/><br/> {this.state.currentRoom} <br/> 
+    moveRooms = async (move, nextRoomId = null) => {
+        let data;
+        if (nextRoomId) {
+            data = {
+                       direction : move,
+                       nextRoomId : toString(nextRoomId)
+                   };
+        } else {
+            data = {
+                       direction: move
+                   };
+        }
+        try {
+            const response = await axios.post(`https://lambda-treasure-hunt.herokuapp.com/api/adv/move/`, data, config);
+
+            let previousRoomId = this.state.roomId;
+            let graph = this.updateGraph( response.data.room_id,
+                                          this.parseCoOrdinates(response.data.coordinates),
+                                          response.data.exits,
+                                          previousRoomId,
+                                          move );
+
+            this.setState({ roomId : response.data.room_id,
+                            coOrdinates : this.parseCoOrdinates(response.data.coordinates),
+                            exists : [...response.data.exits],
+                            path : [...this.state.path, move],
+                            coolDown : response.data.cooldown,
+                            graph });
+    
+        }catch(error){
+            console.log("CAN-NOT GO.............");
+        }
+    }
+
+    updateGraph = (roomId, coOrdinates, exits, previousRoom = null, move = null) => { //graph[roomId] = {{coOrdinates}, [exists]}
+          let graph = Object.assign({}, this.state.graph);
+          if (!this.state.graph[roomId]) {
+                let dataForGraph = [];
+                dataForGraph.push(coOrdinates); //[{x : 60, y : 60}]
+                const directions = {};
+                exits.forEach(exit => {
+                                      directions[exit] = "?"; 
+                });
+                dataForGraph.push(directions); // [{x : 60, y : 60}, {'n' : '?', w : '?'}]
+                graph = { ...graph, [roomId]: dataForGraph };
+          }
+      
+          if (previousRoom !== null && move && previousRoom !== roomId) {
+                graph[previousRoom][1][move] = roomId;
+                graph[roomId][1][this.state.goBackDirection[move]] = previousRoom;
+          }
+
+          localStorage.setItem("graph", JSON.stringify(graph));
+          return graph;
+    };
+
+
+
+    parseCoOrdinates = (coOrdinates) => { // input string type "(60, 60)"
+        const coOrdinatesObj = {};
+        const coOrdinatesInArr = coOrdinates.replace(/[{()}]/g, "").split(",");
+        coOrdinatesInArr.forEach(coOrdinate => {
+            coOrdinatesObj["x"] = parseInt(coOrdinatesInArr[0]);
+            coOrdinatesObj["y"] = parseInt(coOrdinatesInArr[1]);
+        });
+        return coOrdinatesObj; //Output object type {x : 60, y : 60}
+    }
+
+    handleClick = () => {
+        this.interval = setInterval(this.traverseMap, this.state.coolDown * 1000); 
+    }
+ 
+    render() {
+        console.log(this.state.graph)
+        
+        return (
+            <div className = "App">
+                <h1>Treasure   Hunting....</h1>
+                <div className = "display">
+                    <h3>Currently at .... room number : {this.state.roomId}<br/><br/> {this.state.currentRoom} <br/> 
                                            {this.state.roomDescription} <br/>
                                            Enter your next move... {this.state.exists}
                     </h3>
-              </div>
-              <div className = "direction-enter">
-                    <input
-                        type = "text"
-                        value = {this.state.inputDirection}
-                        onChange = {this.handleInputChange}
-                    />
-                    <button onClick = {this.generateMap}>Submit</button>
-              </div>
-              
-          
-      </div>
-    );
-  }
+                </div>
+
+                <div className = "direction-enter">
+                    <button onClick = {this.handleClick}>TraverseMap</button>
+                </div>
+                {(this.state.graph).length > 20?  <Map graph = {this.state.graph}/> : <h2>Still Traversing.......</h2>}
+                
+            </div>
+        );
+    }
 }
 
 export default App;
