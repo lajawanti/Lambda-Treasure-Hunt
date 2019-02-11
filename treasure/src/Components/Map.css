@@ -1,0 +1,88 @@
+.circle{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 50px;
+    width: 50px;
+    background-color: black;
+    border: 2px solid black;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+}
+
+.start{
+    background-color: red;
+    border: 2px solid red;
+}
+
+.no {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 50px;
+    width: 50px;
+    background-color: silver;
+    border: 2px solid silver;
+    border-radius: 20px;
+    color: black;
+    font-weight: bold;
+}
+
+.line-horizontal{
+    width : 40px;
+    height : 10px;
+    background-color : black;    
+}
+
+.line-vertical{
+    width : 10px;
+    height : 30px;
+    background-color : black;    
+}
+
+.white {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgb(255, 255, 255);
+    border-radius: 5px;
+    padding: 2px;
+    margin: 2px;
+    height: 60px;
+    width : 60px;
+}
+
+.north-south {
+    height: 15px;
+    width: 23px;
+    margin: 18px 0px;
+    background-color: purple;
+    align-self: space-between;
+}
+.no-north-south {
+    height: 15px;
+    width: 23px;
+    margin: 18px 0px;
+    background-color: #C4C3C3;
+    align-self: space-between;
+}
+.east-west {
+    height: 29px;
+    width: 15px;
+    margin: 0 30.5px;
+    background-color: purple;
+    align-self: space-between;
+}
+.no-east-west {
+    height: 29px;
+    width: 15px;
+    margin: 0 30.5px;
+    background-color: #C4C3C3;
+    align-self: space-between;
+}
+ 
+.row {
+    display: flex;
+    justify-content: center;
+    align-content: center;
+}
+  

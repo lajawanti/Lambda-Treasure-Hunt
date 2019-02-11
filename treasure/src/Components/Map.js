@@ -1,5 +1,5 @@
 import React from 'react';
-import './Style.css'
+import './Map.css'
 import {data} from './data'
 import MapDisplay from './MapDisplay.js'
 
@@ -8,7 +8,7 @@ export default class Map extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            graph : {}
+            graph : [data],
         };
     }
   

@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import axios from "axios";
 import Map from './Components/Map.js'
-
+import MapManually from './Components/MapManually.js'
 import './App.css'
 
 let config = {
@@ -23,7 +23,8 @@ class App extends Component {
               goBackDirection : {n : "s", s : "n", e : "w", w : "e"},
               graph : {},
               path : [],
-              visited : new Set() // to block repeated entry of visited rooms
+              visited : new Set(), // to block repeated entry of visited rooms
+              message : ''
         };
     }
 
@@ -51,7 +52,8 @@ class App extends Component {
                                    coOrdinates   : response.data.coordinates,
                                    exists        : response.data.exits,
                                    coolDown      : response.data.cooldown,
-                                   items         : response.data.items
+                                   items         : response.data.items,
+                                   message       : response.data.message
                                });
                                this.updateVisited();
             })
@@ -59,7 +61,7 @@ class App extends Component {
     };
 
     updateVisited = () => {
-        let visited = new Set(this.state.set);
+        let visited = new Set(this.state);
         for (let key in this.state.graph) {
             if (!visited.has(key)) {
                 let notVisitedDirections = [];
@@ -98,6 +100,9 @@ class App extends Component {
 
     getUnExploredDirections = () => {
         let notExploreddirections = [];
+        console.log("ROOMID .........",this.state.roomId)
+        console.log(this.state.graph)
+        console.log("Graph[roomid]  :--",this.state.graph[this.state.roomId] )
         let directions = this.state.graph[this.state.roomId][1]; 
         
         for (let direction in directions) {
@@ -225,6 +230,7 @@ class App extends Component {
                     <button onClick = {this.handleClick}>TraverseMap</button>
                 </div>
                 {(this.state.graph).length > 20?  <Map graph = {this.state.graph}/> : <h2>Still Traversing.......</h2>}
+                <MapManually/>
                 
             </div>
         );
